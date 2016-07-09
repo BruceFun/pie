@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<task>
+	<job>
+		<jobId>1</jobId>
+		<jobName>name1</jobName>
+		<jobGroup>group1</jobGroup>
+		<jobStatus>1</jobStatus>
+		<cronExpression>0/5 * * * * ?</cronExpression>
+		<desc>11111111</desc>
+	</job>
+	<job>
+		<jobId>2</jobId>
+		<jobName>name2</jobName>
+		<jobGroup>group2</jobGroup>
+		<jobStatus>2</jobStatus>
+		<cronExpression>0/5 * * * * ?</cronExpression>
+		<desc>2222222222</desc>
+	</job>
+	<job>
+		<jobId>3</jobId>
+		<jobName>name3</jobName>
+		<jobGroup>group3</jobGroup>
+		<jobStatus>3</jobStatus>
+		<cronExpression>0/5 * * * * ?</cronExpression>
+		<desc>33333333333333</desc>
+	</job>
+</task>

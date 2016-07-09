@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:jpa="http://www.springframework.org/schema/data/jpa"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xsi:schemaLocation="
+        http://www.springframework.org/schema/beans 
+        http://www.springframework.org/schema/beans/spring-beans-4.1.xsd
+        http://www.springframework.org/schema/aop 
+        http://www.springframework.org/schema/aop/spring-aop-4.1.xsd
+        http://www.springframework.org/schema/tx 
+        http://www.springframework.org/schema/tx/spring-tx-4.1.xsd
+        http://www.springframework.org/schema/context
+        http://www.springframework.org/schema/context/spring-context-4.1.xsd
+        http://www.springframework.org/schema/data/jpa
+        http://www.springframework.org/schema/data/jpa/spring-jpa.xsd"
+        default-lazy-init="true"> 
+	
+	<bean id="ehCacheManager" class="org.springframework.cache.ehcache.EhCacheManagerFactoryBean"/>
+        
+	<!-- 缓存管理器 使用Ehcache实现--> 
+	<bean id="cacheManager" class="org.apache.shiro.cache.ehcache.EhCacheManager">  
+		<property name="cacheManager" ref="ehCacheManager"/>
+        <property name="cacheManagerConfigFile" value="classpath:ehcache.xml"/>  
+    </bean> 
+    
+    <!-- 会话ID生成器 -->  
+    <bean id="sessionIdGenerator" class="org.apache.shiro.session.mgt.eis.JavaUuidSessionIdGenerator"/> 
+    
+    <!-- 会话Cookie模板 -->  
+    <bean id="sessionIdCookie" class="org.apache.shiro.web.servlet.SimpleCookie">  
+        <constructor-arg value="sid"/>  
+        <property name="httpOnly" value="true"/>  
+        <property name="maxAge" value="180000"/><!-- sessionIdCookie：maxAge=-1表示浏览器关闭时失效此Cookie --> 
+    </bean>  
+  
+    <bean id="rememberMeCookie" class="org.apache.shiro.web.servlet.SimpleCookie">  
+        <constructor-arg value="rememberMe"/>  
+        <property name="httpOnly" value="true"/>  
+        <property name="maxAge" value="2592000"/><!-- rememberMeCookie：即记住我的Cookie，保存时长30天 -->  
+    </bean>
+    
+    <!-- rememberMe管理器，cipherKey是加密rememberMe Cookie的密钥；默认AES算法 -->
+	<bean id="rememberMeManager" class="org.apache.shiro.web.mgt.CookieRememberMeManager">  
+    	<property name="cipherKey" value=" #{T(org.apache.shiro.codec.Base64).decode('4AvVhmFLUs0KTA3Kprsdag==')}"/>  
+		<property name="cookie" ref="rememberMeCookie"/>  
+	</bean>  
+	
+	<!-- 会话DAO -->  
+    <bean id="sessionDAO" class="org.apache.shiro.session.mgt.eis.EnterpriseCacheSessionDAO">  
+        <property name="activeSessionsCacheName" value="shiro-activeSessionCache"/>  
+        <property name="sessionIdGenerator" ref="sessionIdGenerator"/>  
+    </bean> 
+	
+    <!-- 会话管理器 -->  
+    <bean id="sessionManager" class="org.apache.shiro.web.session.mgt.DefaultWebSessionManager">  
+        <property name="globalSessionTimeout" value="1800000"/>  
+        <property name="deleteInvalidSessions" value="true"/>  
+        <property name="sessionValidationSchedulerEnabled" value="true"/>  
+<!--         <property name="sessionValidationScheduler" ref="sessionValidationScheduler"/>   -->
+        <property name="sessionDAO" ref="sessionDAO"/>  
+        <property name="sessionIdCookieEnabled" value="true"/>  
+        <property name="sessionIdCookie" ref="sessionIdCookie"/>  
+    </bean>
+    
+    <!-- 数据库保存的密码是使用MD5算法加密的，所以这里需要配置一个密码匹配对象 -->  
+    <bean id="credentialsMatcher" class="org.apache.shiro.authc.credential.HashedCredentialsMatcher">
+    	<property name="hashAlgorithmName" value="SHA-256"/>
+    	<!-- true:Hex编码16进制   false:Base64编码 -->
+<!--     	<property name="storedCredentialsHexEncoded" value="true" />  -->
+    	<!-- 迭代次数  默认是1 -->
+    	<property name="hashIterations" value="1" /> 
+    </bean>
+   
+    <!-- 自定义UserRealm -->
+    <bean id="myRealm" class="com.pie.shiro.UserRealm">
+    	<property name="credentialsMatcher" ref="credentialsMatcher"/>
+    </bean>
+	
+	<!-- Shiro权限管理器 / 安全管理器 -->  
+    <bean id="securityManager" class="org.apache.shiro.web.mgt.DefaultWebSecurityManager">  
+        <property name="realm" ref="myRealm"></property>  
+        <property name="sessionManager" ref="sessionManager"/>  
+        <property name="cacheManager" ref="cacheManager"/>  
+        <property name="rememberMeManager" ref="rememberMeManager"/>
+    </bean> 
+    
+    <bean id="formAuthenticationFilter" class="org.apache.shiro.web.filter.authc.FormAuthenticationFilter">
+		<property name="rememberMeParam" value="rememberMe"/>
+		<!-- rememberMeParam，即 rememberMe 请求参数名，请求参数是 boolean 类型，true 表示 rememberMe -->
+	</bean>
+
+	<!-- 配置shiro的过滤器工厂类，id- shiroFilter要和我们在web.xml中配置的过滤器一致 -->  
+    <bean id="shiroFilter" class="org.apache.shiro.spring.web.ShiroFilterFactoryBean">  
+        <!-- 调用我们配置的权限管理器 -->   
+        <property name="securityManager" ref="securityManager"/>   
+        <!-- 配置我们的登录请求地址 -->   
+        <property name="loginUrl" value="/userLogin/login"/>    
+        <!-- 配置我们在登录页登录成功后的跳转地址，如果你访问的是非/login地址，则跳到您访问的地址 -->  
+        <property name="successUrl" value="/main/index"/>    
+        <!-- 如果您请求的资源不再您的权限范围，则跳转到/403请求地址 -->  
+        <property name="unauthorizedUrl" value="/403"/>    
+        <!-- shiro 权限过滤器配置 -->  
+        <property name="filterChainDefinitions">    
+            <value>    
+                <!-- anon表示此地址不需要任何权限即可访问 -->  
+                /commons/css/**=anon  
+                /commons/fonts/**=anon  
+                /commons/images/**=anon  
+                /commons/js/**=anon  
+                /userLogin/login=anon  
+                /userLogin/checkLogin=anon  
+                <!-- perms[user:query]表示访问此连接需要权限为user:query的用户 -->  
+                /user=perms[user:query]  
+                <!-- roles[manager]表示访问此连接需要用户的角色为manager -->  
+                /user/add=roles[manager]  
+                /user/del/**=roles[admin]  
+                /user/edit/**=roles[manager]  
+                <!--所有的请求(除去配置的静态资源请求或请求地址为anon的请求)都要通过登录验证,如果未登录则跳到/login-->    
+                /** = authc  
+            </value>    
+        </property>    
+    </bean>  
+    
+	<!-- Shiro生命周期处理器-->  
+    <bean id="lifecycleBeanPostProcessor" class="org.apache.shiro.spring.LifecycleBeanPostProcessor"/>
+</beans>
